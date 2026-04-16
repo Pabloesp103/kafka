@@ -1,14 +1,15 @@
 package com.broker.chain;
 
-import com.broker.model.RetryJob;
-import lombok.extern.slf4j.Slf4j;
+import com.broker.model.BaseRetryJob;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.*;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestTemplate;
 
-@Slf4j
 @Component
 public class StepAHandler implements RetryHandler {
+    private static final Logger log = LoggerFactory.getLogger(StepAHandler.class);
     private RetryHandler next;
     private final RestTemplate restTemplate = new RestTemplate();
 
@@ -18,7 +19,7 @@ public class StepAHandler implements RetryHandler {
     }
 
     @Override
-    public void handle(RetryJob job) {
+    public void handle(BaseRetryJob job) {
         log.info("Executing Step A (Resend request) for job ID: {}", job.getId());
         String url = getUrlForJobType(job.getJobType());
         
@@ -31,6 +32,7 @@ public class StepAHandler implements RetryHandler {
             
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_JSON);
+            headers.set("X-Retry-Attempt", "true");
             HttpEntity<String> request = new HttpEntity<>(businessData, headers);
             
             ResponseEntity<String> response = restTemplate.postForEntity(url, request, String.class);
@@ -47,12 +49,10 @@ public class StepAHandler implements RetryHandler {
         }
     }
 
-    private void fail(RetryJob job, String message) {
+    private void fail(BaseRetryJob job, String message) {
         job.setStatusA("FAILED");
         job.setErrorMessage(message);
         log.error("Step A failed for job ID {}: {}", job.getId(), message);
-        // Even if A fails, we might want to continue to Step B (notify failure) 
-        // as per instructions "Si falla cualquier paso anterior enviar correo de fallo"
         if (next != null) next.handle(job);
     }
 

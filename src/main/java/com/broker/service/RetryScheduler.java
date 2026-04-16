@@ -3,41 +3,85 @@ package com.broker.service;
 import com.broker.chain.StepAHandler;
 import com.broker.chain.StepBHandler;
 import com.broker.chain.StepCHandler;
-import com.broker.model.RetryJob;
-import com.broker.repository.RetryJobRepository;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
+import com.broker.model.BaseRetryJob;
+import com.broker.model.OrderRetryJob;
+import com.broker.model.PaymentRetryJob;
+import com.broker.model.ProductRetryJob;
+import com.broker.repository.OrderRetryJobRepository;
+import com.broker.repository.PaymentRetryJobRepository;
+import com.broker.repository.ProductRetryJobRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import java.time.LocalDateTime;
 import java.util.List;
 
-@Slf4j
 @Service
-@RequiredArgsConstructor
 public class RetryScheduler {
 
-    private final RetryJobRepository repository;
+    private static final Logger log = LoggerFactory.getLogger(RetryScheduler.class);
+
+    private final PaymentRetryJobRepository paymentRepository;
+    private final OrderRetryJobRepository orderRepository;
+    private final ProductRetryJobRepository productRepository;
+    
     private final StepAHandler stepA;
     private final StepBHandler stepB;
     private final StepCHandler stepC;
 
-    @Scheduled(fixedRate = 10000) // 10 seconds
-    public void processRetryJobs() {
-        List<RetryJob> pendingJobs = repository.findByFinalStatus("PENDING");
-        
+    public RetryScheduler(PaymentRetryJobRepository paymentRepository,
+                          OrderRetryJobRepository orderRepository,
+                          ProductRetryJobRepository productRepository,
+                          StepAHandler stepA,
+                          StepBHandler stepB,
+                          StepCHandler stepC) {
+        this.paymentRepository = paymentRepository;
+        this.orderRepository = orderRepository;
+        this.productRepository = productRepository;
+        this.stepA = stepA;
+        this.stepB = stepB;
+        this.stepC = stepC;
+    }
+
+    @Scheduled(fixedRate = 10000) // 10 seconds for payments
+    public void processPaymentRetryJobs() {
+        List<PaymentRetryJob> pendingJobs = paymentRepository.findByFinalStatus("PENDING");
         if (!pendingJobs.isEmpty()) {
-            log.info("Processing {} pending retry jobs", pendingJobs.size());
-            
-            // Configure chain
-            stepA.setNext(stepB);
-            stepB.setNext(stepC);
-            
-            for (RetryJob job : pendingJobs) {
-                job.setLastAttempt(LocalDateTime.now());
-                stepA.handle(job);
-                repository.save(job);
-            }
+            log.info("Processing {} pending PAYMENT retry jobs", pendingJobs.size());
+            processJobs(pendingJobs);
+            paymentRepository.saveAll(pendingJobs);
+        }
+    }
+
+    @Scheduled(fixedRate = 10000) // 10 seconds for orders
+    public void processOrderRetryJobs() {
+        List<OrderRetryJob> pendingJobs = orderRepository.findByFinalStatus("PENDING");
+        if (!pendingJobs.isEmpty()) {
+            log.info("Processing {} pending ORDER retry jobs", pendingJobs.size());
+            processJobs(pendingJobs);
+            orderRepository.saveAll(pendingJobs);
+        }
+    }
+
+    @Scheduled(fixedRate = 10000) // 10 seconds for products
+    public void processProductRetryJobs() {
+        List<ProductRetryJob> pendingJobs = productRepository.findByFinalStatus("PENDING");
+        if (!pendingJobs.isEmpty()) {
+            log.info("Processing {} pending PRODUCT retry jobs", pendingJobs.size());
+            processJobs(pendingJobs);
+            productRepository.saveAll(pendingJobs);
+        }
+    }
+
+    private void processJobs(List<? extends BaseRetryJob> jobs) {
+        // Configure chain
+        stepA.setNext(stepB);
+        stepB.setNext(stepC);
+        
+        for (BaseRetryJob job : jobs) {
+            job.setLastAttempt(LocalDateTime.now());
+            stepA.handle(job);
         }
     }
 }
