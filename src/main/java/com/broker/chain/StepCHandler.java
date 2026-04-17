@@ -22,16 +22,34 @@ public class StepCHandler implements RetryHandler {
         log.info("Executing Step C (Final Status Update) for job ID: {}", job.getId());
         
         try {
-            boolean isAllSuccess = "SUCCESS".equals(job.getStatusA()) && "SUCCESS".equals(job.getStatusB());
-            String finalStatus = isAllSuccess ? "SUCCESS" : "FAILED";
-            String finalMessage = isAllSuccess ? "Job completed successfully" : "Job failed in previous steps";
+            boolean isStepASuccess = "SUCCESS".equals(job.getStatusA());
+            boolean isStepBSuccess = "SUCCESS".equals(job.getStatusB());
+            
+            String finalStatus;
+            String finalMessage;
+
+            if (isStepASuccess && isStepBSuccess) {
+                finalStatus = "SUCCESS";
+                finalMessage = "Job completed successfully";
+                job.setStatusC("SUCCESS");
+            } else if (!isStepASuccess) {
+                // If Step A failed, we keep it PENDING to allow RetryScheduler to pick it up again
+                log.info("Step A failed for job ID: {}. Keeping status PENDING for retry.", job.getId());
+                finalStatus = "PENDING";
+                finalMessage = "Step A failed: " + job.getErrorMessage();
+                job.setStatusC("FAILED"); // Step C itself didn't fail, but the process is not successful yet
+            } else {
+                // Step A succeeded but Step B failed
+                finalStatus = "FAILED";
+                finalMessage = "Step A succeeded but Step B failed";
+                job.setStatusC("FAILED");
+            }
 
             job.setFinalStatus(finalStatus);
-            job.setStatusC("SUCCESS");
 
             ObjectNode rootNode = (ObjectNode) objectMapper.readTree(job.getData());
             ObjectNode updateNode = (ObjectNode) rootNode.path("updateRetryJobs");
-            if (updateNode.isMissingNode()) {
+            if (updateNode.isMissingNode() || updateNode.isNull()) {
                 updateNode = rootNode.putObject("updateRetryJobs");
             }
             updateNode.put("status", finalStatus);

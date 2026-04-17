@@ -37,11 +37,18 @@ public class StepAHandler implements RetryHandler {
             
             ResponseEntity<String> response = restTemplate.postForEntity(url, request, String.class);
             
+            com.fasterxml.jackson.databind.node.ObjectNode rootObject = (com.fasterxml.jackson.databind.node.ObjectNode) rootNode;
+            com.fasterxml.jackson.databind.node.ObjectNode dataObject = (com.fasterxml.jackson.databind.node.ObjectNode) rootObject.path("data");
+
             if (response.getStatusCode().is2xxSuccessful()) {
                 job.setStatusA("SUCCESS");
+                dataObject.put("status", "SUCCESS");
+                job.setData(mapper.writeValueAsString(rootObject));
                 log.info("Step A successful for job ID: {}", job.getId());
                 if (next != null) next.handle(job);
             } else {
+                dataObject.put("status", "FAILED");
+                job.setData(mapper.writeValueAsString(rootObject));
                 fail(job, "Endpoint returned status: " + response.getStatusCode());
             }
         } catch (Exception e) {

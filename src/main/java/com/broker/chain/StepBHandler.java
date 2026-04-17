@@ -34,19 +34,39 @@ public class StepBHandler implements RetryHandler {
         log.info("Executing Step B (Send Real Email) for job ID: {}", job.getId());
         
         try {
-            boolean success = "SUCCESS".equals(job.getStatusA());
-            String emailMessage = getEmailMessage(job.getJobType(), success);
-            String emailStatus = success ? "SUCCESS" : "FAILED";
+            boolean isStepASuccess = "SUCCESS".equals(job.getStatusA());
+            
+            ObjectNode rootNode = (ObjectNode) objectMapper.readTree(job.getData());
+            ObjectNode emailNode = (ObjectNode) rootNode.path("sendEmail");
+            if (emailNode.isMissingNode() || emailNode.isNull()) {
+                emailNode = rootNode.putObject("sendEmail");
+            }
+
+            String lastEmailStatus = emailNode.path("status").asText("PENDING");
+            
+            // If Step A failed and we already sent a failure email, skip Step B
+            if (!isStepASuccess && "FAILED".equals(lastEmailStatus)) {
+                log.info("Failure email already sent for job ID: {}. Skipping Step B.", job.getId());
+                job.setStatusB("SUCCESS"); // Mark Step B as successful (skipped intentionally)
+                if (next != null) next.handle(job);
+                return;
+            }
+
+            // If Step A succeeded and we already sent a success email, skip Step B
+            if (isStepASuccess && "SUCCESS".equals(lastEmailStatus)) {
+                log.info("Success email already sent for job ID: {}. Skipping Step B.", job.getId());
+                job.setStatusB("SUCCESS");
+                if (next != null) next.handle(job);
+                return;
+            }
+
+            String emailMessage = getEmailMessage(job.getJobType(), isStepASuccess);
+            String emailStatus = isStepASuccess ? "SUCCESS" : "FAILED";
 
             sendEmail(fromEmail, "Notificación de Microservicio: " + job.getJobType(), emailMessage);
 
             log.info("Email sent successfully to {}. Message: {}", fromEmail, emailMessage);
 
-            ObjectNode rootNode = (ObjectNode) objectMapper.readTree(job.getData());
-            ObjectNode emailNode = (ObjectNode) rootNode.path("sendEmail");
-            if (emailNode.isMissingNode()) {
-                emailNode = rootNode.putObject("sendEmail");
-            }
             emailNode.put("status", emailStatus);
             emailNode.put("message", emailMessage);
             
