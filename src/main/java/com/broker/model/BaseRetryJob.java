@@ -23,12 +23,15 @@ public abstract class BaseRetryJob {
 
     private String errorMessage;
 
+    @Column(nullable = false, columnDefinition = "int default 0")
+    private int attempts = 0; // Field to count retry attempts
+
     private LocalDateTime createdAt;
     private LocalDateTime lastAttempt;
 
     public BaseRetryJob() {}
 
-    public BaseRetryJob(Long id, String jobType, String data, String statusA, String statusB, String statusC, String finalStatus, String errorMessage, LocalDateTime createdAt, LocalDateTime lastAttempt) {
+    public BaseRetryJob(Long id, String jobType, String data, String statusA, String statusB, String statusC, String finalStatus, String errorMessage, int attempts, LocalDateTime createdAt, LocalDateTime lastAttempt) {
         this.id = id;
         this.jobType = jobType;
         this.data = data;
@@ -37,6 +40,7 @@ public abstract class BaseRetryJob {
         this.statusC = statusC;
         this.finalStatus = finalStatus;
         this.errorMessage = errorMessage;
+        this.attempts = attempts;
         this.createdAt = createdAt;
         this.lastAttempt = lastAttempt;
     }
@@ -67,6 +71,8 @@ public abstract class BaseRetryJob {
     public void setFinalStatus(String finalStatus) { this.finalStatus = finalStatus; }
     public String getErrorMessage() { return errorMessage; }
     public void setErrorMessage(String errorMessage) { this.errorMessage = errorMessage; }
+    public int getAttempts() { return attempts; }
+    public void setAttempts(int attempts) { this.attempts = attempts; }
     public LocalDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
     public LocalDateTime getLastAttempt() { return lastAttempt; }

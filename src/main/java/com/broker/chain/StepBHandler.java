@@ -44,15 +44,29 @@ public class StepBHandler implements RetryHandler {
 
             String lastEmailStatus = emailNode.path("status").asText("PENDING");
             
-            // If Step A failed and we already sent a failure email, skip Step B
+            /* 
             if (!isStepASuccess && "FAILED".equals(lastEmailStatus)) {
                 log.info("Failure email already sent for job ID: {}. Skipping Step B.", job.getId());
                 job.setStatusB("SUCCESS"); // Mark Step B as successful (skipped intentionally)
                 if (next != null) next.handle(job);
                 return;
             }
+            */
 
-            // If Step A succeeded and we already sent a success email, skip Step B
+            if (!isStepASuccess) {
+                if (job.getAttempts() < 5) {
+                    log.info("Step A failed for job ID: {} (Attempt {}). Skipping email until success.", job.getId(), job.getAttempts());
+                    job.setStatusB("PENDING");
+                    emailNode.put("status", "PENDING");
+                    emailNode.put("message", "Esperando a que la petición sea exitosa para enviar correo");
+                    job.setData(objectMapper.writeValueAsString(rootNode));
+                    if (next != null) next.handle(job);
+                    return;
+                } else {
+                    log.warn("Step A failed on FINAL attempt for job ID: {}. Sending FAILURE email.", job.getId());
+                }
+            }
+
             if (isStepASuccess && "SUCCESS".equals(lastEmailStatus)) {
                 log.info("Success email already sent for job ID: {}. Skipping Step B.", job.getId());
                 job.setStatusB("SUCCESS");
@@ -63,7 +77,7 @@ public class StepBHandler implements RetryHandler {
             String emailMessage = getEmailMessage(job.getJobType(), isStepASuccess);
             String emailStatus = isStepASuccess ? "SUCCESS" : "FAILED";
 
-            sendEmail(fromEmail, "Notificación de Microservicio: " + job.getJobType(), emailMessage);
+            sendEmail(fromEmail, "Notificación de Microservicio: " + job.getJobType() + (isStepASuccess ? "" : " - ERROR FINAL"), emailMessage);
 
             log.info("Email sent successfully to {}. Message: {}", fromEmail, emailMessage);
 

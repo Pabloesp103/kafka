@@ -44,7 +44,7 @@ public class RetryScheduler {
         this.stepC = stepC;
     }
 
-    @Scheduled(fixedRate = 10000) // 10 seconds for payments
+    @Scheduled(fixedRate = 10000)
     public void processPaymentRetryJobs() {
         List<PaymentRetryJob> pendingJobs = paymentRepository.findByFinalStatus("PENDING");
         if (!pendingJobs.isEmpty()) {
@@ -54,7 +54,7 @@ public class RetryScheduler {
         }
     }
 
-    @Scheduled(fixedRate = 10000) // 10 seconds for orders
+    @Scheduled(fixedRate = 10000)
     public void processOrderRetryJobs() {
         List<OrderRetryJob> pendingJobs = orderRepository.findByFinalStatus("PENDING");
         if (!pendingJobs.isEmpty()) {
@@ -64,7 +64,7 @@ public class RetryScheduler {
         }
     }
 
-    @Scheduled(fixedRate = 10000) // 10 seconds for products
+    @Scheduled(fixedRate = 10000)
     public void processProductRetryJobs() {
         List<ProductRetryJob> pendingJobs = productRepository.findByFinalStatus("PENDING");
         if (!pendingJobs.isEmpty()) {
@@ -75,12 +75,17 @@ public class RetryScheduler {
     }
 
     private void processJobs(List<? extends BaseRetryJob> jobs) {
-        // Configure chain
         stepA.setNext(stepB);
         stepB.setNext(stepC);
         
         for (BaseRetryJob job : jobs) {
             job.setLastAttempt(LocalDateTime.now());
+            
+            int currentAttempts = job.getAttempts() + 1;
+            job.setAttempts(currentAttempts);
+            
+            log.info("Processing job ID: {} - Attempt: {}/5", job.getId(), currentAttempts);
+            
             stepA.handle(job);
         }
     }

@@ -33,13 +33,18 @@ public class StepCHandler implements RetryHandler {
                 finalMessage = "Job completed successfully";
                 job.setStatusC("SUCCESS");
             } else if (!isStepASuccess) {
-                // If Step A failed, we keep it PENDING to allow RetryScheduler to pick it up again
-                log.info("Step A failed for job ID: {}. Keeping status PENDING for retry.", job.getId());
-                finalStatus = "PENDING";
-                finalMessage = "Step A failed: " + job.getErrorMessage();
-                job.setStatusC("FAILED"); // Step C itself didn't fail, but the process is not successful yet
+                if (job.getAttempts() >= 5) {
+                    log.warn("Step A failed on final attempt for job ID: {}. Marking as FAILED.", job.getId());
+                    finalStatus = "FAILED";
+                    finalMessage = "Max attempts reached. Step A failed: " + job.getErrorMessage();
+                    job.setStatusC("FAILED");
+                } else {
+                    log.info("Step A failed for job ID: {}. Keeping status PENDING for retry.", job.getId());
+                    finalStatus = "PENDING";
+                    finalMessage = "Step A failed: " + job.getErrorMessage();
+                    job.setStatusC("FAILED");
+                }
             } else {
-                // Step A succeeded but Step B failed
                 finalStatus = "FAILED";
                 finalMessage = "Step A succeeded but Step B failed";
                 job.setStatusC("FAILED");
