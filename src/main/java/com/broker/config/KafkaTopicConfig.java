@@ -9,8 +9,8 @@ import org.springframework.kafka.config.TopicBuilder;
 public class KafkaTopicConfig {
 
     @Bean
-    public NewTopic productRetryTopic() {
-        return TopicBuilder.name("product_retry_jobs").partitions(1).replicas(1).build();
+    public NewTopic paymentRetryTopic() {
+        return TopicBuilder.name("payments_retry_jobs").partitions(1).replicas(1).build();
     }
 
     @Bean
@@ -19,7 +19,22 @@ public class KafkaTopicConfig {
     }
 
     @Bean
-    public NewTopic paymentRetryTopic() {
-        return TopicBuilder.name("payments_retry_jobs").partitions(1).replicas(1).build();
+    public NewTopic productRetryTopic() {
+        return TopicBuilder.name("product_retry_jobs").partitions(1).replicas(1).build();
+    }
+
+    @Bean
+    public NewTopic orderStatusChangedTopic() {
+        return TopicBuilder.name("order_status_changed_events").partitions(1).replicas(1).build();
+    }
+
+    @Bean
+    public NewTopic inventoryUpdateTopic() {
+        return TopicBuilder.name("inventory_update_events").partitions(1).replicas(1).build();
+    }
+
+    @Bean
+    public NewTopic paymentReceivedTopic() {
+        return TopicBuilder.name("payment_received_events").partitions(1).replicas(1).build();
     }
 }
